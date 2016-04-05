@@ -36,6 +36,7 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
+  char *mem;
   if(tf->trapno == T_SYSCALL){
     if(proc->killed)
       exit();
@@ -77,8 +78,18 @@ trap(struct trapframe *tf)
             cpu->id, tf->cs, tf->eip);
     lapiceoi();
     break;
+
+  case T_PGFLT:
+    mem = kalloc();
+    if(mem == 0){
+      cprintf("allocuvm out of memory\n");
+      proc->killed = 1;
+      break;
+    }
+    memset(mem, 0, PGSIZE);
+    mappages(proc->pgdir, (void *)PGROUNDDOWN(rcr2()), PGSIZE, v2p(mem), PTE_W|PTE_U);
+    break;
    
-  //PAGEBREAK: 13
   default:
     if(proc == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
